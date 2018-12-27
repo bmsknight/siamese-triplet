@@ -5,16 +5,32 @@ import torch.nn.functional as F
 class EmbeddingNet(nn.Module):
     def __init__(self):
         super(EmbeddingNet, self).__init__()
-        self.convnet = nn.Sequential(nn.Conv2d(1, 32, 5), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2),
-                                     nn.Conv2d(32, 64, 5), nn.PReLU(),
-                                     nn.MaxPool2d(2, stride=2))
+        self.convnet = nn.Sequential(nn.Conv1d(7, 64, 3, padding=1), nn.ELU(),
+                                     nn.BatchNorm1d(64),
+                                     nn.MaxPool1d(2, stride=2),
 
-        self.fc = nn.Sequential(nn.Linear(64 * 4 * 4, 256),
-                                nn.PReLU(),
-                                nn.Linear(256, 256),
-                                nn.PReLU(),
-                                nn.Linear(256, 2)
+                                     nn.Conv1d(64, 128, 3, padding=1), nn.ELU(),
+                                     nn.BatchNorm1d(128),
+                                     nn.MaxPool1d(2, stride=2),
+
+                                     nn.Conv1d(128, 256, 3, padding=1), nn.ELU(),
+                                     nn.BatchNorm1d(256),
+                                     nn.MaxPool1d(2, stride=2),
+
+                                     nn.Conv1d(256, 512, 3, padding=1), nn.ELU(),
+                                     nn.BatchNorm1d(512),
+                                     nn.MaxPool1d(2, stride=2)
+                                     )
+
+        self.fc = nn.Sequential(nn.Linear(9216, 64),
+                                nn.BatchNorm1d(64),
+                                nn.ELU(),
+                                nn.Dropout(0.4),
+
+                                nn.Linear(64, 32),
+                                nn.BatchNorm1d(32),
+                                nn.Sigmoid()
+
                                 )
 
     def forward(self, x):
@@ -46,7 +62,7 @@ class ClassificationNet(nn.Module):
         self.embedding_net = embedding_net
         self.n_classes = n_classes
         self.nonlinear = nn.PReLU()
-        self.fc1 = nn.Linear(2, n_classes)
+        self.fc1 = nn.Linear(32, n_classes)
 
     def forward(self, x):
         output = self.embedding_net(x)

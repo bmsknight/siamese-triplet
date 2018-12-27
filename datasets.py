@@ -15,18 +15,18 @@ class SiameseMNIST(Dataset):
         self.mnist_dataset = mnist_dataset
 
         self.train = self.mnist_dataset.train
-        self.transform = self.mnist_dataset.transform
+        # self.transform = None
 
         if self.train:
-            self.train_labels = self.mnist_dataset.train_labels
-            self.train_data = self.mnist_dataset.train_data
+            self.train_labels = self.mnist_dataset.labels
+            self.train_data = self.mnist_dataset.data
             self.labels_set = set(self.train_labels.numpy())
             self.label_to_indices = {label: np.where(self.train_labels.numpy() == label)[0]
                                      for label in self.labels_set}
         else:
             # generate fixed pairs for testing
-            self.test_labels = self.mnist_dataset.test_labels
-            self.test_data = self.mnist_dataset.test_data
+            self.test_labels = self.mnist_dataset.labels
+            self.test_data = self.mnist_dataset.data
             self.labels_set = set(self.test_labels.numpy())
             self.label_to_indices = {label: np.where(self.test_labels.numpy() == label)[0]
                                      for label in self.labels_set}
@@ -65,11 +65,11 @@ class SiameseMNIST(Dataset):
             img2 = self.test_data[self.test_pairs[index][1]]
             target = self.test_pairs[index][2]
 
-        img1 = Image.fromarray(img1.numpy(), mode='L')
-        img2 = Image.fromarray(img2.numpy(), mode='L')
-        if self.transform is not None:
-            img1 = self.transform(img1)
-            img2 = self.transform(img2)
+        # img1 = Image.fromarray(img1.numpy(), mode='L')
+        # img2 = Image.fromarray(img2.numpy(), mode='L')
+        # if self.transform is not None:
+        #     img1 = self.transform(img1)
+        #     img2 = self.transform(img2)
         return (img1, img2), target
 
     def __len__(self):
