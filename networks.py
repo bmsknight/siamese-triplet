@@ -29,7 +29,10 @@ class EmbeddingNet(nn.Module):
 
                                 nn.Linear(64, 32),
                                 nn.BatchNorm1d(32),
-                                nn.Sigmoid()
+                                nn.ELU(),
+
+                                # nn.Linear(32, 2),
+
 
                                 )
 

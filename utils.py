@@ -10,7 +10,7 @@ def pdist(vectors):
     return distance_matrix
 
 
-class PairSelector:
+class PairSelector(object):
     """
     Implementation should return indices of positive pairs and negative pairs that will be passed to compute
     Contrastive Loss
@@ -74,7 +74,7 @@ class HardNegativePairSelector(PairSelector):
         return positive_pairs, top_negative_pairs
 
 
-class TripletSelector:
+class TripletSelector(object):
     """
     Implementation should return indices of anchors, positive and negative samples
     return np array of shape [N_triplets x 3]

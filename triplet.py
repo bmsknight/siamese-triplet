@@ -7,16 +7,19 @@ import torch.optim as optim
 
 from trainer import fit
 import numpy as np
+cuda = torch.cuda.is_available()
+
+import matplotlib.pyplot as plt
+
+batch_size = 32
 
 train_dataset = SSDataset(train=True)
 test_dataset = SSDataset(train=False)
-
-import matplotlib
-import matplotlib.pyplot as plt
+kwargs = {'num_workers': 4, 'pin_memory': True} if cuda else {}
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
 
 n_classes = 10
-
-cuda = torch.cuda.is_available()
 
 mnist_classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
@@ -51,28 +54,35 @@ def extract_embeddings(dataloader, model):
     return embeddings, labels
 
 
+
+
 # Set up data loaders
-batch_size = 32
-kwargs = {'num_workers': 4, 'pin_memory': True} if cuda else {}
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
+from datasets import TripletMNIST
+
+triplet_train_dataset = TripletMNIST(train_dataset) # Returns triplets of images
+triplet_test_dataset = TripletMNIST(test_dataset)
+
+kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
+triplet_train_loader = torch.utils.data.DataLoader(triplet_train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+triplet_test_loader = torch.utils.data.DataLoader(triplet_test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
 
 # Set up the network and training parameters
-from networks import EmbeddingNet, ClassificationNet
-from metrics import AccumulatedAccuracyMetric
+from networks import EmbeddingNet, TripletNet
+from losses import TripletLoss
 
+margin = 1.
 embedding_net = EmbeddingNet()
-model = ClassificationNet(embedding_net, n_classes=n_classes)
+model = TripletNet(embedding_net)
 if cuda:
     model.cuda()
-loss_fn = torch.nn.NLLLoss()
+loss_fn = TripletLoss(margin)
 lr = 1e-3
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.StepLR(optimizer, 10, gamma=0.5, last_epoch=-1)
 n_epochs = 30
 log_interval = 100
 
-fit(train_loader, test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval, metrics=[AccumulatedAccuracyMetric()])
+fit(triplet_train_loader, triplet_test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval)
 
 
 train_embeddings_cl, train_labels_cl = extract_embeddings(train_loader, model)

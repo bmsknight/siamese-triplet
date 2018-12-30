@@ -1,37 +1,25 @@
-from torchvision.datasets import MNIST
-from torchvision import transforms
+
 from mydataset import  SSDataset
-
-mean, std = 0.1307, 0.3081
-
-# train_dataset = MNIST('../data/MNIST', train=True, download=True,
-#                              transform=transforms.Compose([
-#                                  transforms.ToTensor(),
-#                                  transforms.Normalize((mean,), (std,))
-#                              ]))
-# test_dataset = MNIST('../data/MNIST', train=False, download=True,
-#                             transform=transforms.Compose([
-#                                 transforms.ToTensor(),
-#                                 transforms.Normalize((mean,), (std,))
-#                             ]))
-
-train_dataset = SSDataset(train=True)
-test_dataset = SSDataset(train=False)
-
-n_classes = 10
 
 import torch
 from torch.optim import lr_scheduler
 import torch.optim as optim
-from torch.autograd import Variable
 
 from trainer import fit
 import numpy as np
 cuda = torch.cuda.is_available()
 
-
-import matplotlib
 import matplotlib.pyplot as plt
+
+batch_size = 32
+
+train_dataset = SSDataset(train=True)
+test_dataset = SSDataset(train=False)
+kwargs = {'num_workers': 4, 'pin_memory': True} if cuda else {}
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
+
+n_classes = 10
 
 mnist_classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
@@ -40,7 +28,7 @@ colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
 
 
 def plot_embeddings(embeddings, targets, xlim=None, ylim=None):
-    plt.figure(figsize=(10,10))
+    # plt.figure(figsize=(10,10))
     for i in range(10):
         inds = np.where(targets==i)[0]
         plt.scatter(embeddings[inds,0], embeddings[inds,1], alpha=0.5, color=colors[i])
@@ -54,7 +42,7 @@ def plot_embeddings(embeddings, targets, xlim=None, ylim=None):
 def extract_embeddings(dataloader, model):
     with torch.no_grad():
         model.eval()
-        embeddings = np.zeros((len(dataloader.dataset), 2))
+        embeddings = np.zeros((len(dataloader.dataset), 32))
         labels = np.zeros(len(dataloader.dataset))
         k = 0
         for images, target in dataloader:
@@ -72,7 +60,7 @@ from datasets import SiameseMNIST
 
 siamese_train_dataset = SiameseMNIST(train_dataset) # Returns pairs of images and target same/different
 siamese_test_dataset = SiameseMNIST(test_dataset)
-batch_size = 32
+
 kwargs = {'num_workers': 4, 'pin_memory': True} if cuda else {}
 siamese_train_loader = torch.utils.data.DataLoader(siamese_train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
 siamese_test_loader = torch.utils.data.DataLoader(siamese_test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
@@ -81,7 +69,7 @@ siamese_test_loader = torch.utils.data.DataLoader(siamese_test_dataset, batch_si
 from networks import EmbeddingNet, SiameseNet
 from losses import ContrastiveLoss
 
-margin = 1.
+margin = 1
 embedding_net = EmbeddingNet()
 model = SiameseNet(embedding_net)
 if cuda:
@@ -94,4 +82,29 @@ n_epochs = 30
 log_interval = 100
 
 fit(siamese_train_loader, siamese_test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval)
+
+
+train_embeddings_cl, train_labels_cl = extract_embeddings(train_loader, model)
+val_embeddings_cl, val_labels_cl = extract_embeddings(test_loader, model)
+train_length = train_embeddings_cl.shape[0]
+dataset_complete = np.vstack((train_embeddings_cl, val_embeddings_cl))
+
+from sklearn.manifold import TSNE
+
+n_sne = 7000
+
+tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+
+tsne_dataset_complete = tsne.fit_transform(dataset_complete)
+tsne_train_embeddings_cl = tsne_dataset_complete[:train_length, :]
+tsne_val_embeddings_cl = tsne_dataset_complete[train_length:, :]
+
+plt.subplot(1, 2, 1)
+# plot_embeddings(train_embeddings_cl, train_labels_cl)
+plot_embeddings(tsne_train_embeddings_cl, train_labels_cl)
+
+plt.subplot(1, 2, 2)
+# plot_embeddings(val_embeddings_cl, val_labels_cl)
+plot_embeddings(tsne_val_embeddings_cl, val_labels_cl)
+plt.show()
 
